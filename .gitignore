@@ -1,0 +1,78 @@
+# -----------------------------
+# Python
+# -----------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+*.log
+
+# Virtual environment
+env/
+venv/
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# -----------------------------
+# OS / Editor files
+# -----------------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# -----------------------------
+# Environment & Secrets
+# -----------------------------
+.env
+*.env
+
+# -----------------------------
+# Model files (VERY IMPORTANT)
+# Do NOT upload to GitHub repo
+# -----------------------------
+*.pt
+*.pth
+*.h5
+*.onnx
+*.tflite
+*.joblib
+*.pkl
+*.keras
+
+# If you only want to ignore specific model:
+best5.pt
+final_model_*.h5
+
+# -----------------------------
+# Temp folders
+# -----------------------------
+tmp/
+temp/
+*.tmp
+
+# -----------------------------
+# Build / Cache
+# -----------------------------
+dist/
+build/
+*.egg-info/
+.cache/
+.railway/
+
+# -----------------------------
+# Logs
+# -----------------------------
+logs/
+*.log
+
+# -----------------------------
+# Node (if front-end included)
+# -----------------------------
+node_modules/
+npm-debug.log
+yarn-error.log
+
