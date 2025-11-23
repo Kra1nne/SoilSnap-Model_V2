@@ -2,7 +2,7 @@ flask
 flask-cors
 ultralytics==8.3.50
 torch==2.7.1+cpu
-torchvision==0.18.1+cpu
+torchvision==0.22.1+cpu
 --extra-index-url https://download.pytorch.org/whl/cpu
 numpy
 pillow

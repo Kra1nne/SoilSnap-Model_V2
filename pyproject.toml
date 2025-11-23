@@ -1,0 +1,20 @@
+[project]
+name = "yolo-api"
+version = "0.1.0"
+description = "YOLO API"
+
+requires-python = ">=3.10,<3.12"
+
+dependencies = [
+    "flask",
+    "flask-cors",
+    "ultralytics==8.3.50",
+    "torch==2.7.1+cpu",
+    "torchvision==0.22.1+cpu",
+    "numpy",
+    "pillow",
+    "requests"
+]
+
+[tool.pip]
+extra-index-url=["https://download.pytorch.org/whl/cpu"]
