@@ -24,7 +24,8 @@ else:
     MODEL_PATH = os.path.join(os.getcwd(), MODEL_FILENAME)
 
 # ★★★★★ YOUR GITHUB RELEASE URL ★★★★★
-MODEL_URL = "https://github.com/yourname/yourrepo/releases/download/v2.0/best5.pt"
+
+MODEL_URL="https://github.com/Kra1nne/SoilSnap-Model_V2/releases/download/v2.0/best5.pt"
 
 CONFIDENCE_THRESHOLD = float(os.environ.get("CONFIDENCE_THRESHOLD", "0.5"))
 
