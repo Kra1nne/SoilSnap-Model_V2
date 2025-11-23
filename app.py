@@ -1,15 +1,10 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from ultralytics import YOLO
 import os
 import logging
 import tempfile
 import requests
-import io
-
-import torch
-import torch.nn as nn
-import numpy as np
-from PIL import Image
 
 app = Flask(__name__)
 CORS(app)
@@ -22,41 +17,23 @@ logger = logging.getLogger(__name__)
 # ----------------------
 MODEL_FILENAME = "best5.pt"
 MODEL_PATH_OVERRIDE = os.environ.get("MODEL_PATH_OVERRIDE")
+
 if MODEL_PATH_OVERRIDE:
     MODEL_PATH = os.path.abspath(MODEL_PATH_OVERRIDE)
 else:
     MODEL_PATH = os.path.join(os.getcwd(), MODEL_FILENAME)
 
-MODEL_URL = os.environ.get(
-    "MODEL_URL",
-    "https://github.com/yourname/yourrepo/releases/download/v2.0/best5.pt"
-)
+# ★★★★★ YOUR GITHUB RELEASE URL ★★★★★
+MODEL_URL = "https://github.com/yourname/yourrepo/releases/download/v2.0/best5.pt"
 
 CONFIDENCE_THRESHOLD = float(os.environ.get("CONFIDENCE_THRESHOLD", "0.5"))
-
-# ----------------------
-# Architecture
-# ----------------------
-class SoilModel(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.model = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(224*224*3, 256),
-            nn.ReLU(),
-            nn.Linear(256, 10)
-        )
-
-    def forward(self, x):
-        return self.model(x)
-
 
 # ----------------------
 # Download model
 # ----------------------
 def download_model():
     if MODEL_PATH_OVERRIDE and os.path.exists(MODEL_PATH):
-        logger.info("Using overridden model path %s", MODEL_PATH)
+        logger.info("Using overridden model path: %s", MODEL_PATH)
         return
 
     if os.path.exists(MODEL_PATH):
@@ -65,12 +42,13 @@ def download_model():
 
     logger.info("Downloading model from %s", MODEL_URL)
     try:
-        with requests.get(MODEL_URL, stream=True) as r:
-            r.raise_for_status()
-            with open(MODEL_PATH, "wb") as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
+        r = requests.get(MODEL_URL, stream=True)
+        r.raise_for_status()
+
+        with open(MODEL_PATH, "wb") as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                f.write(chunk)
+
         logger.info("Model downloaded successfully.")
     except Exception as e:
         logger.exception("Error downloading model: %s", e)
@@ -78,40 +56,23 @@ def download_model():
 
 
 # ----------------------
-# Load model
+# Load YOLO model
 # ----------------------
 model = None
 _model_loaded = False
+
 try:
     download_model()
 
-    model = SoilModel()
-    state_dict = torch.load(MODEL_PATH, map_location="cpu")
-    model.load_state_dict(state_dict)
-    model.eval()
+    model = YOLO(MODEL_PATH)   # ✔ Correct YOLO loading
+    model.to("cpu")
 
     _model_loaded = True
-    logger.info("Model loaded successfully.")
+    logger.info("YOLO model loaded successfully.")
+
 except Exception as e:
-    logger.exception("Failed to load PyTorch model: %s", e)
+    logger.exception("Failed to load YOLO model: %s", e)
     model = None
-
-
-# ----------------------
-# Preprocessing
-# ----------------------
-def preprocess(image_bytes):
-    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    img = img.resize((224, 224))
-
-    arr = np.array(img) / 255.0
-    arr = arr.astype(np.float32).transpose(2, 0, 1)  # CHW
-    return torch.tensor(arr).unsqueeze(0)
-
-
-class_names = [
-    'Clay', 'Clay Loam', 'Loam', 'Loamy Sand', 'Non-Soil', 'Sand', 'Sandy Loam', 'Silt', 'Silty Clay', 'Silty Loam'    
-]
 
 
 # ----------------------
@@ -122,34 +83,45 @@ def predict():
     if model is None:
         return jsonify({'error': 'Model not loaded'}), 500
 
+    if 'image' not in request.files:
+        return jsonify({'error': 'No image file'}), 400
+
     try:
-        if 'image' not in request.files:
-            return jsonify({'error': 'No image file'}), 400
+        file = request.files['image']
 
-        image_bytes = request.files['image'].read()
-        x = preprocess(image_bytes)
+        # Temp image
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+            file.save(tmp.name)
+            img_path = tmp.name
 
-        with torch.no_grad():
-            logits = model(x)
-            probs = torch.softmax(logits, dim=1)[0].numpy()
+        # YOLO Classification
+        results = model.predict(
+            source=img_path,
+            imgsz=640,
+            conf=0.25
+        )
 
-        idx = int(np.argmax(probs))
-        predicted_class = class_names[idx]
-        confidence = float(probs[idx])
+        r = results[0]
+        probs = r.probs
 
+        idx = probs.top1
+        confidence = float(probs.top1conf)
+        class_name = model.names[idx]
+
+        # confidence gate
         if confidence < CONFIDENCE_THRESHOLD:
             return jsonify({
-                'error': 'Image does not appear to be soil.',
+                'error': 'Low confidence.',
                 'confidence': confidence,
-                'probabilities': probs.tolist(),
-                'classes': class_names
+                'probabilities': probs.data.tolist(),
+                'classes': model.names
             }), 400
 
         return jsonify({
-            'prediction': predicted_class,
-            'confidence': confidence,
-            'probabilities': probs.tolist(),
-            'classes': class_names
+            "prediction": class_name,
+            "confidence": confidence,
+            "probabilities": probs.data.tolist(),
+            "classes": model.names
         })
 
     except Exception as e:

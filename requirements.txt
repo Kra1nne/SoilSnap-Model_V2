@@ -1,7 +1,7 @@
 flask
 flask-cors
+ultralytics
 torch
-torchvision
-pillow
 numpy
+pillow
 requests
